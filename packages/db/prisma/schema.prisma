@@ -1,0 +1,345 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  SCHOLAR
+  AUTHOR
+  FACULTY
+  INSTITUTION_ADMIN
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum DocumentStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  PEER_REVIEWED
+  ACCEPTED
+  REJECTED
+}
+
+enum RequestStatus {
+  NEW
+  IN_REVIEW
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ChatSender {
+  USER
+  ASSISTANT
+}
+
+enum ReviewStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model User {
+  id                String           @id @default(uuid())
+  email             String           @unique
+  passwordHash      String
+  name              String
+  role              UserRole         @default(SCHOLAR)
+  isLocked          Boolean          @default(false)
+  plan              String           @default("FREE")
+  preferredLanguage String           @default("en")
+  institutionId     String?
+  institution       Institution?     @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  profile           Profile?
+  documents         Document[]
+  serviceRequests   ServiceRequest[]
+  enrollments       Enrollment[]
+  aiConversations   AIConversation[]
+  payments          Payment[]
+  supportTickets    SupportTicket[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  reviews           Review[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Profile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio            String?
+  phone          String?
+  profilePhoto   String?
+  education      String?
+  specialization String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Institution {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  type      String
+  location  String
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+}
+
+enum DocumentCategory {
+  THESIS
+  SYNOPSIS
+  PUBLICATION
+  CONFERENCE_PAPER
+  SIMILARITY_REPORT
+  AI_REPORT
+  MARKSHEET
+  WORKSHOP_CERTIFICATE
+  FDP_CERTIFICATE
+  IDENTITY_PROOF
+  SIGNATURE
+  OTHER
+}
+
+model Document {
+  id            String           @id @default(uuid())
+  title         String
+  abstract      String
+  keywords      String[]
+  fileUrl       String
+  category      DocumentCategory @default(OTHER)
+  fileSize      Int?
+  mimeType      String?
+  status        DocumentStatus   @default(SUBMITTED)
+  doi           String?          @unique
+  citationCount Int              @default(0)
+  authorId      String
+  author        User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  tags          DocumentTag[]
+  reviews       Review[]
+
+  @@index([status])
+  @@index([authorId])
+}
+
+model DocumentTag {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  documents Document[]
+}
+
+model ServiceWing {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String
+  priceRate   Float
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  requests    ServiceRequest[]
+}
+
+model ServiceRequest {
+  id        String        @id @default(uuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wingId    String
+  wing      ServiceWing   @relation(fields: [wingId], references: [id], onDelete: Cascade)
+  details   String
+  status    RequestStatus @default(NEW)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  payments  Payment[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Course {
+  id          String         @id @default(uuid())
+  title       String         @unique
+  description String
+  price       Float          @default(0)
+  published   Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  modules     CourseModule[]
+  enrollments Enrollment[]
+}
+
+model CourseModule {
+  id          String   @id @default(uuid())
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  orderIndex  Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lessons     Lesson[]
+
+  @@index([courseId])
+}
+
+model Lesson {
+  id         String           @id @default(uuid())
+  moduleId   String
+  module     CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title      String
+  content    String
+  orderIndex Int
+  videoUrl   String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  progress   LessonProgress[]
+
+  @@index([moduleId])
+}
+
+model Enrollment {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  payments  Payment[]
+
+  @@unique([userId, courseId])
+}
+
+model LessonProgress {
+  id          String    @id @default(uuid())
+  userId      String
+  lessonId    String
+  lesson      Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, lessonId])
+}
+
+model AIConversation {
+  id        String      @id @default(uuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic     String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  messages  AIMessage[]
+
+  @@index([userId])
+}
+
+model AIMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         ChatSender
+  content        String
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId])
+}
+
+model Payment {
+  id               String          @id @default(uuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount           Float
+  currency         String          @default("USD")
+  status           PaymentStatus   @default(PENDING)
+  txRef            String          @unique
+  planName         String?
+  serviceRequestId String?
+  serviceRequest   ServiceRequest? @relation(fields: [serviceRequestId], references: [id], onDelete: SetNull)
+  enrollmentId     String?
+  enrollment       Enrollment?     @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model SupportTicket {
+  id        String       @id @default(uuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject   String
+  message   String
+  status    TicketStatus @default(OPEN)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  details   String
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+}
+
+model Review {
+  id              String       @id @default(uuid())
+  documentId      String
+  document        Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  reviewerId      String
+  reviewer        User         @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  score           Int
+  comments        String
+  recommendations String
+  status          ReviewStatus @default(PENDING)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([documentId])
+  @@index([reviewerId])
+}
