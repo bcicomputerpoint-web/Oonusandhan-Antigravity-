@@ -17,10 +17,14 @@
     "db:generate": "npm run db:generate --workspace=@onusandhan/db",
     "db:migrate": "npm run db:migrate --workspace=@onusandhan/db"
   },
+  "dependencies": {
+    "typescript": "^5.3.3",
+    "prisma": "^5.11.0",
+    "ts-node": "^10.9.2"
+  },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "eslint": "^8.56.0",
-    "prettier": "^3.2.5",
-    "typescript": "^5.3.3"
+    "prettier": "^3.2.5"
   }
 }
