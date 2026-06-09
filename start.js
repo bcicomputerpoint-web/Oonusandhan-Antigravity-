@@ -43,7 +43,7 @@ const externalPort = process.env.PORT || '3000';
 log(`Frontend will listen on port ${externalPort} (proxied to API on port 3001)`);
 
 const webProcess = spawn('node', ['./node_modules/next/dist/bin/next', 'start', './apps/web', '-p', externalPort], {
-  env: { ...process.env },
+  env: { ...process.env, API_SPAWNED: 'true' },
   shell: true
 });
 
